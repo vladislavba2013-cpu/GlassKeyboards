@@ -12,15 +12,21 @@ jobs:
             cp -rn GlassKeyboard/* . || true
           fi
           python3 -c '
-          import glob
+          import glob, re
           c = chr(58)
-          bad = "http" + c + "//android.com"
-          good = "http" + c + "//://android.com"
-          for p in glob.glob("app/src/main/**/*.xml", recursive=True):
-              s = open(p, encoding="utf-8").read()
-              if bad in s:
-                  open(p, "w", encoding="utf-8").write(s.replace(bad, good))
-                  print("Fixed:", p)
+          p = "android" + c
+          s = open("app/src/main/AndroidManifest.xml", encoding="utf-8").read()
+          s = re.sub(r"xmlns" + c + r"android=\"[^\"]+\"", "xmlns" + c + "android=\"http" + c + "//://android.com\"", s)
+          attrs = ["name", "resource", "label", "icon", "theme", "exported", "permission", "authorities", "grantUriPermissions", "settingsActivity", "supportsSwitchingToNextInputMethod", "imeSubtypeLocale", "imeSubtypeMode", "allowBackup", "supportsRtl", "windowSoftInputMode", "excludeFromRecents", "taskAffinity"]
+          for a in attrs:
+              s = re.sub(r"(?<![a-zA-Z0-9_" + c + r"])" + a + "=", p + a + "=", s)
+          open("app/src/main/AndroidManifest.xml", "w", encoding="utf-8").write(s)
+          for f in glob.glob("app/src/main/res/xml/*.xml"):
+              x = open(f, encoding="utf-8").read()
+              x = re.sub(r"xmlns" + c + r"android=\"[^\"]+\"", "xmlns" + c + "android=\"http" + c + "//://android.com\"", x)
+              for a in attrs:
+                  x = re.sub(r"(?<![a-zA-Z0-9_" + c + r"])" + a + "=", p + a + "=", x)
+              open(f, "w", encoding="utf-8").write(x)
           '
       - uses: actions/setup-java@v4
         with:
