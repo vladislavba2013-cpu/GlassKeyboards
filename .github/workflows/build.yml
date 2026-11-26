@@ -18,7 +18,7 @@ jobs:
           echo "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4KPGlucHV0LW1ldGhvZCB4bWxuczphbmRyb2lkPSJodHRwOi8vc2NoZW1hcy5hbmRyb2lkLmNvbS9hcGsvcmVzL2FuZHJvaWQiCiAgICBhbmRyb2lkOnNldHRpbmdzQWN0aXZpdHk9ImNvbS5nbGFzc2tiLk1haW5BY3Rpdml0eSIKICAgIGFuZHJvaWQ6c3VwcG9ydHNTd2l0Y2hpbmdUb05leHRJbnB1dE1ldGhvZD0idHJ1ZSI+CiAgICA8c3VidHlwZQogICAgICAgIGFuZHJvaWQ6bGFiZWw9IkBzdHJpbmcvc3VidHlwZV9ydSIKICAgICAgICBhbmRyb2lkOmltZVN1YnR5cGVMb2NhbGU9InJ1X1JVIgogICAgICAgIGFuZHJvaWQ6aW1lU3VidHlwZU1vZGU9ImtleWJvYXJkIiAvPgogICAgPHN1YnR5cGUKICAgICAgICBhbmRyb2lkOmxhYmVsPSJAc3RyaW5nL3N1YnR5cGVfZW4iCiAgICAgICAgYW5kcm9pZDppbWVTdWJ0eXBlTG9jYWxlPSJlbl9VUyIKICAgICAgICBhbmRyb2lkOmltZVN1YnR5cGVNb2RlPSJrZXlib2FyZCIgLz4KPC9pbnB1dC1tZXRob2Q+Cg==" | base64 -d > app/src/main/res/xml/method.xml
 
           python3 -c '
-          import glob, os
+          import glob
           for f in glob.glob("app/src/main/java/com/glasskb/*.kt"):
               s = open(f, "rb").read().decode("utf-8", errors="ignore").lstrip("\ufeff \t\r\n")
               if not s.startswith("package "):
@@ -26,7 +26,52 @@ jobs:
                   if idx != -1:
                       s = s[idx:]
               open(f, "w", encoding="utf-8").write(s + "\n")
-          print("Files in com/glasskb:", sorted(os.listdir("app/src/main/java/com/glasskb")))
+
+          kb = open("app/src/main/java/com/glasskb/KbController.kt", encoding="utf-8").read()
+          cut = kb.find("private fun startVoiceInternal")
+          if cut != -1:
+              kb = kb[:cut].rstrip() + "\n"
+              tail = """    private fun startVoiceInternal() {
+        if (!SpeechRecognizer.isRecognitionAvailable(service)) return
+        stopVoice()
+        val sr = SpeechRecognizer.createSpeechRecognizer(service)
+        recognizer = sr
+        sr.setRecognitionListener(object : RecognitionListener {
+            override fun onReadyForSpeech(params: Bundle?) { listening = true }
+            override fun onBeginningOfSpeech() {}
+            override fun onRmsChanged(rmsdB: Float) {}
+            override fun onBufferReceived(buffer: ByteArray?) {}
+            override fun onEndOfSpeech() { listening = false }
+            override fun onError(error: Int) { listening = false }
+            override fun onPartialResults(partialResults: Bundle?) {}
+            override fun onEvent(eventType: Int, params: Bundle?) {}
+            override fun onResults(results: Bundle?) {
+                listening = false
+                val text = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
+                if (!text.isNullOrBlank()) {
+                    ic()?.commitText("$text ", 1)
+                }
+            }
+        })
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, if (lang == "ru") "ru-RU" else "en-US")
+        }
+        listening = true
+        runCatching { sr.startListening(intent) }.onFailure { listening = false }
+    }
+
+    fun stopVoice() {
+        listening = false
+        runCatching {
+            recognizer?.stopListening()
+            recognizer?.destroy()
+        }
+        recognizer = null
+    }
+}
+"""
+              open("app/src/main/java/com/glasskb/KbController.kt", "w", encoding="utf-8").write(kb + "\n" + tail)
           '
       - uses: actions/setup-java@v4
         with:
