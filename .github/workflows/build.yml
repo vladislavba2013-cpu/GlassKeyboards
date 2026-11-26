@@ -26,53 +26,12 @@ jobs:
                   if idx != -1:
                       s = s[idx:]
               open(f, "w", encoding="utf-8").write(s + "\n")
-
           kb = open("app/src/main/java/com/glasskb/KbController.kt", encoding="utf-8").read()
           cut = kb.find("private fun startVoiceInternal")
           if cut != -1:
-              kb = kb[:cut].rstrip() + "\n"
-              tail = """    private fun startVoiceInternal() {
-        if (!SpeechRecognizer.isRecognitionAvailable(service)) return
-        stopVoice()
-        val sr = SpeechRecognizer.createSpeechRecognizer(service)
-        recognizer = sr
-        sr.setRecognitionListener(object : RecognitionListener {
-            override fun onReadyForSpeech(params: Bundle?) { listening = true }
-            override fun onBeginningOfSpeech() {}
-            override fun onRmsChanged(rmsdB: Float) {}
-            override fun onBufferReceived(buffer: ByteArray?) {}
-            override fun onEndOfSpeech() { listening = false }
-            override fun onError(error: Int) { listening = false }
-            override fun onPartialResults(partialResults: Bundle?) {}
-            override fun onEvent(eventType: Int, params: Bundle?) {}
-            override fun onResults(results: Bundle?) {
-                listening = false
-                val text = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
-                if (!text.isNullOrBlank()) {
-                    ic()?.commitText("$text ", 1)
-                }
-            }
-        })
-        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(RecognizerIntent.EXTRA_LANGUAGE, if (lang == "ru") "ru-RU" else "en-US")
-        }
-        listening = true
-        runCatching { sr.startListening(intent) }.onFailure { listening = false }
-    }
-
-    fun stopVoice() {
-        listening = false
-        runCatching {
-            recognizer?.stopListening()
-            recognizer?.destroy()
-        }
-        recognizer = null
-    }
-}
-"""
-              open("app/src/main/java/com/glasskb/KbController.kt", "w", encoding="utf-8").write(kb + "\n" + tail)
+              open("app/src/main/java/com/glasskb/KbController.kt", "w", encoding="utf-8").write(kb[:cut].rstrip() + "\n")
           '
+          printf '\n    private fun startVoiceInternal() {\n        if (!SpeechRecognizer.isRecognitionAvailable(service)) return\n        stopVoice()\n        val sr = SpeechRecognizer.createSpeechRecognizer(service)\n        recognizer = sr\n        sr.setRecognitionListener(object : RecognitionListener {\n            override fun onReadyForSpeech(params: Bundle?) { listening = true }\n            override fun onBeginningOfSpeech() {}\n            override fun onRmsChanged(rmsdB: Float) {}\n            override fun onBufferReceived(buffer: ByteArray?) {}\n            override fun onEndOfSpeech() { listening = false }\n            override fun onError(error: Int) { listening = false }\n            override fun onPartialResults(partialResults: Bundle?) {}\n            override fun onEvent(eventType: Int, params: Bundle?) {}\n            override fun onResults(results: Bundle?) {\n                listening = false\n                val text = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()\n                if (!text.isNullOrBlank()) {\n                    ic()?.commitText("$text ", 1)\n                }\n            }\n        })\n        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {\n            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)\n            putExtra(RecognizerIntent.EXTRA_LANGUAGE, if (lang == "ru") "ru-RU" else "en-US")\n        }\n        listening = true\n        runCatching { sr.startListening(intent) }.onFailure { listening = false }\n    }\n\n    fun stopVoice() {\n        listening = false\n        runCatching {\n            recognizer?.stopListening()\n            recognizer?.destroy()\n        }\n        recognizer = null\n    }\n}\n' >> app/src/main/java/com/glasskb/KbController.kt
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
