@@ -5,12 +5,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Unpack if ZIP exists
+      - name: Unpack and fix XML namespaces
         run: |
           if [ -f "GlassKeyboard.zip" ]; then
             unzip -q GlassKeyboard.zip
             cp -rn GlassKeyboard/* . || true
           fi
+          S="://android.com"
+          sed -i "s|http://android.com|http://${S}/apk/res/android|g" app/src/main/AndroidManifest.xml app/src/main/res/xml/method.xml || true
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
@@ -25,4 +27,3 @@ jobs:
         with:
           name: GlassKeyboard-APK
           path: app/build/outputs/apk/debug/app-debug.apk
-          
