@@ -5,14 +5,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Unpack and fix XML namespaces
+      - name: Unpack and repair XML
         run: |
           if [ -f "GlassKeyboard.zip" ]; then
             unzip -q GlassKeyboard.zip
             cp -rn GlassKeyboard/* . || true
           fi
-          S="://android.com"
-          sed -i "s|http://android.com|http://${S}/apk/res/android|g" app/src/main/AndroidManifest.xml app/src/main/res/xml/method.xml || true
+          python3 -c '
+          import glob
+          c = chr(58)
+          bad = "http" + c + "//android.com"
+          good = "http" + c + "//://android.com"
+          for p in glob.glob("app/src/main/**/*.xml", recursive=True):
+              s = open(p, encoding="utf-8").read()
+              if bad in s:
+                  open(p, "w", encoding="utf-8").write(s.replace(bad, good))
+                  print("Fixed:", p)
+          '
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
